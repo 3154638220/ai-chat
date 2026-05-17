@@ -111,11 +111,12 @@ export class ConversationService {
 
     try {
       const response = await this.ai.chat(chatMessages, route.model);
-      this.store.addMessage(contactId, 'assistant', response.content, response.model);
+      const cleanedContent = normalizeAssistantReply(response.content);
+      this.store.addMessage(contactId, 'assistant', cleanedContent, response.model);
       void this.refreshSummaryIfNeeded(contactId).catch((error) => {
         this.logger.warn('summary refresh failed', error instanceof Error ? error.message : String(error));
       });
-      return { kind: 'reply', text: response.content };
+      return { kind: 'reply', text: cleanedContent };
     } catch (error) {
       this.logger.error('ai reply failed', error instanceof Error ? error.message : String(error));
       return { kind: 'reply', text: '我这会儿有点连不上脑袋，等一下再跟我说一次好不好。' };
@@ -182,4 +183,24 @@ export class ConversationService {
     const result = await this.ai.chat(summaryMessages, this.config.deepseek.fastModel);
     return result.content;
   }
+}
+
+function normalizeAssistantReply(content: string): string {
+  let next = content.trim();
+
+  while (true) {
+    const previous = next;
+    next = next.replace(/（[^（）]*）|\([^()]*\)|【[^【】]*】|\[[^[\]]*\]/g, ' ');
+    if (next === previous) {
+      break;
+    }
+  }
+
+  next = next
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return next || '嗯。';
 }

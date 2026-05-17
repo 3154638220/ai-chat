@@ -12,7 +12,7 @@ test('builds chat messages with persona, summary, and recent history', () => {
   });
 
   assert.equal(messages[0].role, 'system');
-  assert.match(messages[0].content, /AI 微信聊天女友/);
+  assert.match(messages[0].content, /学姐/);
   assert.match(messages[1].content, /用户喜欢晚上散步/);
   assert.equal(messages.at(-1).content, '抱抱你。');
 });

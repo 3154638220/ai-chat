@@ -12,7 +12,15 @@ export interface AppConfig {
   };
   wechaty: {
     puppet: string;
-    puppetServiceToken: string;
+    puppetServiceToken?: string;
+    oicqQq?: string;
+  };
+  web: {
+    host: string;
+    port: number;
+    loginPassword: string;
+    contactId: string;
+    historyLimit: number;
   };
   ownerBindSecret: string;
   memoryEncryptionKey: string;
@@ -49,13 +57,31 @@ function parseMode(raw: string | undefined): ModelMode {
   throw new Error('MODEL_ROUTING must be one of: fast, pro, auto');
 }
 
+function resolveSecrets(env: NodeJS.ProcessEnv): { ownerBindSecret: string; webLoginPassword: string } {
+  const ownerBindSecret = env.OWNER_BIND_SECRET?.trim() || '';
+  const webLoginPassword = env.WEB_LOGIN_PASSWORD?.trim() || ownerBindSecret;
+  const effectiveSecret = ownerBindSecret || webLoginPassword;
+
+  if (!effectiveSecret) {
+    throw new Error('Missing required environment variable: OWNER_BIND_SECRET or WEB_LOGIN_PASSWORD');
+  }
+  if (effectiveSecret.length < 12) {
+    throw new Error('OWNER_BIND_SECRET or WEB_LOGIN_PASSWORD should be at least 12 characters');
+  }
+  if (webLoginPassword.length < 12) {
+    throw new Error('WEB_LOGIN_PASSWORD should be at least 12 characters');
+  }
+
+  return {
+    ownerBindSecret: effectiveSecret,
+    webLoginPassword,
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   loadDotenv();
 
-  const ownerBindSecret = required(env, 'OWNER_BIND_SECRET');
-  if (ownerBindSecret.length < 12) {
-    throw new Error('OWNER_BIND_SECRET should be at least 12 characters');
-  }
+  const secrets = resolveSecrets(env);
 
   return {
     deepseek: {
@@ -66,10 +92,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       timeoutMs: optionalInt(env, 'DEEPSEEK_TIMEOUT_MS', 45_000),
     },
     wechaty: {
-      puppet: env.WECHATY_PUPPET?.trim() || 'wechaty-puppet-service',
-      puppetServiceToken: required(env, 'WECHATY_PUPPET_SERVICE_TOKEN'),
+      puppet: env.WECHATY_PUPPET?.trim() || 'wechaty-puppet-oicq',
+      puppetServiceToken: env.WECHATY_PUPPET_SERVICE_TOKEN?.trim() || undefined,
+      oicqQq: env.WECHATY_PUPPET_OICQ_QQ?.trim() || undefined,
     },
-    ownerBindSecret,
+    web: {
+      host: env.WEB_HOST?.trim() || '0.0.0.0',
+      port: optionalInt(env, 'WEB_PORT', 3000),
+      loginPassword: secrets.webLoginPassword,
+      contactId: env.WEB_CONTACT_ID?.trim() || 'web-owner',
+      historyLimit: optionalInt(env, 'WEB_HISTORY_LIMIT', 60),
+    },
+    ownerBindSecret: secrets.ownerBindSecret,
     memoryEncryptionKey: required(env, 'MEMORY_ENCRYPTION_KEY'),
     databasePath: path.resolve(env.DATABASE_PATH?.trim() || 'data/memory.sqlite'),
     modelRouting: parseMode(env.MODEL_ROUTING),

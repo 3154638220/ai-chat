@@ -1,8 +1,8 @@
-# AI 微信聊天女友 Bot 方案
+# AI 私聊聊天伴侣 Web App 方案
 
 ## Summary
 - 在 `/home/ubuntu/ai-chat` 从零创建 Node.js/TypeScript 项目；当前服务器有 Node `18.19.1`、npm `9.2.0`，无 Docker/PM2。
-- 使用单独机器人微信号登录 Wechaty puppet service；只对白名单 owner 回复，不接群聊，不主动发消息。
+- 默认直接运行在服务器上，通过网页访问；不再依赖微信或 QQ。
 - DeepSeek 走 OpenAI 兼容接口：`https://api.deepseek.com`；默认 `deepseek-v4-flash`，深聊/手动模式用 `deepseek-v4-pro`，不使用将于 2026-07-24 废弃的 `deepseek-chat`。
 - 长期完整记忆落本地 SQLite，聊天正文用 Node `crypto` AES-256-GCM 应用层加密。
 
@@ -19,12 +19,19 @@
   - `DEEPSEEK_BASE_URL=https://api.deepseek.com`
   - `DEEPSEEK_FAST_MODEL=deepseek-v4-flash`
   - `DEEPSEEK_PRO_MODEL=deepseek-v4-pro`
-  - `WECHATY_PUPPET=wechaty-puppet-service`
-  - `WECHATY_PUPPET_SERVICE_TOKEN`
+  - `WEB_HOST=0.0.0.0`
+  - `WEB_PORT=3000`
+  - `WEB_CONTACT_ID=web-owner`
+  - `WEB_HISTORY_LIMIT=60`
+  - `WEB_LOGIN_PASSWORD`
   - `OWNER_BIND_SECRET`
   - `MEMORY_ENCRYPTION_KEY`
   - `MODEL_ROUTING=auto`
-- 微信内命令：
+- 私聊命令：
+  - `/mode fast|pro|auto`
+  - `/pro <message>`
+  - `/status`
+  - `/reset-summary`
   - `/bind <secret>`：首次绑定 owner
   - `/mode fast|pro|auto`：切换模型路由
   - `/pro <message>`：本条强制用 pro

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>学姐</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <section class="panel auth-panel" id="auth-panel">
+        <div class="brand-mark">AIC</div>
+        <p class="eyebrow">Private Server Chat</p>
+        <h1>学姐</h1>
+        <p class="intro">这个页面直接连你自己的服务器。先输入访问口令，再进入只属于你和学姐的聊天。</p>
+        <form id="login-form" class="login-form">
+          <label for="password">访问口令</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="submit">进入聊天</button>
+        </form>
+        <p class="auth-error" id="auth-error"></p>
+      </section>
+
+      <section class="panel chat-panel hidden" id="chat-panel">
+        <header class="chat-header">
+          <div>
+            <p class="eyebrow">Server-Hosted</p>
+            <h2>学姐</h2>
+          </div>
+          <div class="status-strip" id="status-strip"></div>
+        </header>
+
+        <div class="action-row">
+          <button class="ghost" data-command="/mode auto">Auto</button>
+          <button class="ghost" data-command="/mode fast">Fast</button>
+          <button class="ghost" data-command="/mode pro">Pro</button>
+          <button class="ghost" data-command="/status">Status</button>
+          <button class="ghost" data-command="/reset-summary">Reset Summary</button>
+          <button class="ghost danger" id="logout-button">退出</button>
+        </div>
+
+        <div class="notice hidden" id="notice"></div>
+        <div class="messages" id="messages"></div>
+
+        <form id="chat-form" class="chat-form">
+          <textarea id="message-input" rows="3" maxlength="4000" placeholder="直接输入消息，或者使用 /mode fast、/status 这样的命令。"></textarea>
+          <div class="composer-meta">
+            <span>聊天内容只保存在你的服务器本地数据库里。</span>
+            <button type="submit" id="send-button">发送</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

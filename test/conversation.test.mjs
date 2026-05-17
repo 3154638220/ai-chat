@@ -134,3 +134,33 @@ test('supports mode and pro commands', async (t) => {
   await service.handleIncomingMessage({ contactId: 'owner', text: '/pro 帮我认真分析一下', isSelf: false, isRoom: false });
   assert.equal(calls.at(-1).model, 'deepseek-v4-pro');
 });
+
+test('strips parenthetical action text from assistant replies', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-chat-test-'));
+  const dbPath = path.join(dir, 'memory.sqlite');
+  const store = await MemoryStore.open(dbPath, config.memoryEncryptionKey);
+  const ai = {
+    async chat() {
+      return {
+        content: '晚上好呀（轻笑） 今天还顺利吗？【摸摸头】[靠近一点]',
+        model: 'deepseek-v4-flash',
+      };
+    },
+  };
+
+  t.after(() => {
+    store.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const service = new ConversationService({ ...config, databasePath: dbPath }, store, ai, logger);
+
+  await service.handleIncomingMessage({ contactId: 'owner', text: '/bind owner-secret-123', isSelf: false, isRoom: false });
+  const reply = await service.handleIncomingMessage({ contactId: 'owner', text: '晚上好', isSelf: false, isRoom: false });
+
+  assert.equal(reply.kind, 'reply');
+  assert.equal(reply.text.includes('（'), false);
+  assert.equal(reply.text.includes('【'), false);
+  assert.equal(reply.text.includes('['), false);
+  assert.match(reply.text, /晚上好呀/);
+});

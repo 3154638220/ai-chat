@@ -1,5 +1,5 @@
 [Unit]
-Description=AI WeChat Girlfriend Bot
+Description=AI Chat Companion Web App
 After=network-online.target
 Wants=network-online.target
 

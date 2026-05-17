@@ -1,10 +1,10 @@
 import { loadConfig } from './config.js';
 import { logger } from './logger.js';
-import { startBot } from './bot.js';
+import { startWebServer } from './web.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  await startBot(config, logger);
+  await startWebServer(config, logger);
 }
 
 main().catch((error) => {
