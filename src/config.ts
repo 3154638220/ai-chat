@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
+import type { PersonaContext } from './persona.js';
 import type { ModelMode } from './types.js';
 
 export interface AppConfig {
@@ -22,6 +23,7 @@ export interface AppConfig {
     contactId: string;
     historyLimit: number;
   };
+  persona: PersonaContext;
   ownerBindSecret: string;
   memoryEncryptionKey: string;
   databasePath: string;
@@ -102,6 +104,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       loginPassword: secrets.webLoginPassword,
       contactId: env.WEB_CONTACT_ID?.trim() || 'web-owner',
       historyLimit: optionalInt(env, 'WEB_HISTORY_LIMIT', 60),
+    },
+    persona: {
+      assistantIdentity: env.ASSISTANT_IDENTITY?.trim() || null,
+      assistantProfile: env.ASSISTANT_PROFILE?.trim() || null,
+      userIdentity: env.USER_IDENTITY?.trim() || null,
+      userProfile: env.USER_PROFILE?.trim() || null,
+      relationshipBackground: env.RELATIONSHIP_BACKGROUND?.trim() || null,
     },
     ownerBindSecret: secrets.ownerBindSecret,
     memoryEncryptionKey: required(env, 'MEMORY_ENCRYPTION_KEY'),

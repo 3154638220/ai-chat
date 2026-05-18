@@ -18,6 +18,13 @@ const config = {
     puppet: 'wechaty-puppet-service',
     puppetServiceToken: 'token',
   },
+  persona: {
+    assistantIdentity: '她叫林绪，是用户熟悉的学姐。',
+    assistantProfile: '说话偏克制，观察力强，很会照顾情绪。',
+    userIdentity: '用户叫周沉。',
+    userProfile: '爱好是摄影和散步，特长是写代码和做规划。',
+    relationshipBackground: '两人认识很多年，默认彼此知道对方身份。',
+  },
   ownerBindSecret: 'owner-secret-123',
   memoryEncryptionKey: 'memory-secret-123',
   databasePath: '',
@@ -114,6 +121,10 @@ test('routes chat through ai and stores encrypted memory', async (t) => {
 
   assert.equal(reply.kind, 'reply');
   assert.equal(calls[0].model, 'deepseek-v4-flash');
+  assert.match(calls[0].messages[0].content, /林绪/);
+  assert.match(calls[0].messages[0].content, /照顾情绪/);
+  assert.match(calls[0].messages[0].content, /周沉/);
+  assert.match(calls[0].messages[0].content, /摄影/);
   assert.equal(store.getMessageCount('owner'), 2);
 
   const dbBytes = fs.readFileSync(dbPath);

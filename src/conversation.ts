@@ -105,6 +105,7 @@ export class ConversationService {
     const summary = this.store.getLatestSummary(contactId);
     const recentMessages = this.store.getRecentMessages(contactId, this.config.recentMessageLimit);
     const chatMessages = buildChatMessages({
+      persona: this.config.persona,
       longTermSummary: summary?.text ?? null,
       recentMessages,
     });

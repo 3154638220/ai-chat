@@ -1,12 +1,13 @@
-import { PERSONA_PROMPT } from './persona.js';
+import { buildPersonaPrompt, type PersonaContext } from './persona.js';
 import type { DeepSeekMessage, StoredMessage } from './types.js';
 
 export function buildChatMessages(params: {
+  persona: PersonaContext;
   longTermSummary: string | null;
   recentMessages: StoredMessage[];
 }): DeepSeekMessage[] {
   const messages: DeepSeekMessage[] = [
-    { role: 'system', content: PERSONA_PROMPT },
+    { role: 'system', content: buildPersonaPrompt(params.persona) },
   ];
 
   if (params.longTermSummary?.trim()) {
