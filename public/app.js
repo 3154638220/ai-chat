@@ -291,7 +291,7 @@ function rerenderConversationList() {
       deleteButton.type = 'button';
       deleteButton.className = 'conversation-delete';
       deleteButton.disabled = pending;
-      deleteButton.textContent = '···';
+      deleteButton.textContent = '删除';
       deleteButton.setAttribute('aria-label', `删除 ${conversation.title}`);
       deleteButton.title = '删除对话';
       deleteButton.addEventListener('click', (event) => {

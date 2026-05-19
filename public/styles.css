@@ -259,8 +259,9 @@ button:disabled {
 
 .conversation-list {
   overflow: auto;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding-right: 4px;
 }
 
@@ -329,20 +330,16 @@ button:disabled {
 }
 
 .conversation-delete {
-  width: 30px;
+  min-width: 42px;
   height: 30px;
-  padding: 0;
+  padding: 0 9px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.56);
   border: 1px solid rgba(109, 66, 47, 0.1);
   color: var(--muted);
-  opacity: 0;
-  transform: none;
-}
-
-.conversation-row:hover .conversation-delete,
-.conversation-row:focus-within .conversation-delete {
+  font-size: 12px;
   opacity: 1;
+  transform: none;
 }
 
 .conversation-delete:hover {
