@@ -34,6 +34,7 @@ interface WebConversationItem {
   preview: string;
   updatedAt: string;
   messageCount: number;
+  canDelete: boolean;
 }
 
 interface WebState {
@@ -175,6 +176,26 @@ export async function startWebServer(config: AppConfig, logger: Logger): Promise
       return sendJson(res, 200, { state: buildWebState(store, config, selected.id) });
     }
 
+    if (method === 'POST' && pathname === '/api/conversations/delete') {
+      const body = await readJsonBody(req);
+      const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : '';
+      if (!conversationId) {
+        return sendJson(res, 400, { error: 'missing-conversation-id' });
+      }
+      if (conversationId === 'default') {
+        return sendJson(res, 400, { error: 'default-conversation-protected' });
+      }
+
+      const deleted = store.deleteConversation(config.web.contactId, conversationId);
+      if (!deleted) {
+        return sendJson(res, 404, { error: 'conversation-not-found' });
+      }
+
+      const current = resolveCurrentConversation(store, config);
+      syncWebOwnerContact(store, current.storageContactId, logger);
+      return sendJson(res, 200, { state: buildWebState(store, config, current.id) });
+    }
+
     if (method === 'POST' && pathname === '/api/chat') {
       const body = await readJsonBody(req);
       const text = typeof body.text === 'string' ? body.text.trim() : '';
@@ -279,6 +300,7 @@ function buildConversationItem(store: MemoryStore, conversation: StoredConversat
     preview: latestMessage ? compactText(latestMessage.content, 64) : '还没有消息',
     updatedAt: latestMessage?.createdAt ?? conversation.updatedAt,
     messageCount: store.getMessageCount(conversation.storageContactId),
+    canDelete: conversation.id !== 'default',
   };
 }
 

@@ -71,5 +71,36 @@ test('syncs the owner to the active web conversation and exposes conversation st
   assert.equal(state.conversations.length, 2);
   assert.equal(state.conversations[0].id, newerConversation.id);
   assert.equal(state.conversations[1].id, 'default');
+  assert.equal(state.conversations[0].canDelete, true);
+  assert.equal(state.conversations[1].canDelete, false);
   assert.match(state.conversations[1].preview, /你好呀/);
+});
+
+test('deletes the active web conversation and falls back to the remaining one', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-chat-web-test-'));
+  const dbPath = path.join(dir, 'memory.sqlite');
+  const store = await MemoryStore.open(dbPath, baseConfig.memoryEncryptionKey);
+
+  t.after(() => {
+    store.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  store.ensureDefaultConversation('web-owner');
+  store.addMessage('web-owner', 'user', '默认对话消息');
+
+  const newerConversation = store.createConversation('web-owner');
+  store.addMessage(newerConversation.storageContactId, 'user', '准备删除这个对话');
+  store.setCurrentWebConversationId('web-owner', newerConversation.id);
+
+  assert.equal(store.deleteConversation('web-owner', newerConversation.id), true);
+
+  const state = buildWebState(store, { ...baseConfig, databasePath: dbPath });
+
+  assert.equal(state.currentConversationId, 'default');
+  assert.equal(state.conversations.length, 1);
+  assert.equal(state.conversations[0].id, 'default');
+  assert.equal(state.messages.length, 1);
+  assert.equal(state.messages[0].content, '默认对话消息');
+  assert.equal(store.getConversation('web-owner', newerConversation.id), null);
 });

@@ -160,6 +160,10 @@ export class MemoryStore {
     );
   }
 
+  deleteSetting(key: string): void {
+    this.run('DELETE FROM settings WHERE key = ?', [key]);
+  }
+
   getOwnerId(): string | null {
     return this.getSetting('owner_contact_id');
   }
@@ -236,6 +240,26 @@ export class MemoryStore {
       [baseContactId, conversationId],
     );
     return row ? this.toConversation(row) : null;
+  }
+
+  deleteConversation(baseContactId: string, conversationId: string): boolean {
+    const conversation = this.getConversation(baseContactId, conversationId);
+    if (!conversation) {
+      return false;
+    }
+
+    this.run('DELETE FROM messages WHERE contact_id = ?', [conversation.storageContactId]);
+    this.run('DELETE FROM memory_summaries WHERE contact_id = ?', [conversation.storageContactId]);
+    this.run('DELETE FROM conversations WHERE base_contact_id = ? AND id = ?', [baseContactId, conversation.id]);
+
+    if (this.getCurrentWebConversationId(baseContactId) === conversation.id) {
+      this.deleteSetting(`web_current_conversation:${baseContactId}`);
+    }
+    if (this.getOwnerId() === conversation.storageContactId) {
+      this.deleteSetting('owner_contact_id');
+    }
+
+    return true;
   }
 
   addMessage(contactId: string, role: 'user' | 'assistant', content: string, model: string | null = null): number {

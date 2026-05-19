@@ -192,6 +192,34 @@ async function selectConversation(conversationId) {
   }
 }
 
+async function deleteConversation(conversation) {
+  if (pending || !conversation?.canDelete) {
+    return;
+  }
+
+  const confirmed = window.confirm(`删除“${conversation.title}”？此操作不可恢复。`);
+  if (!confirmed) {
+    return;
+  }
+
+  setPending(true);
+  clearNotice();
+  optimisticMessages = [];
+
+  try {
+    const payload = await api('/api/conversations/delete', {
+      method: 'POST',
+      body: { conversationId: conversation.id },
+    });
+    renderState(payload.state);
+    messageInput.focus();
+  } catch (error) {
+    showNotice(error instanceof Error ? error.message : '删除对话失败', true);
+  } finally {
+    setPending(false);
+  }
+}
+
 function setPending(next) {
   pending = next;
   sendButton.disabled = next;
@@ -229,6 +257,9 @@ function rerenderConversationList() {
   }
 
   for (const conversation of conversations) {
+    const row = document.createElement('div');
+    row.className = 'conversation-row';
+
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'conversation-item';
@@ -240,9 +271,6 @@ function rerenderConversationList() {
       void selectConversation(conversation.id);
     });
 
-    const top = document.createElement('div');
-    top.className = 'conversation-item-top';
-
     const title = document.createElement('strong');
     title.className = 'conversation-title';
     title.textContent = conversation.title;
@@ -251,18 +279,29 @@ function rerenderConversationList() {
     time.className = 'conversation-time';
     time.textContent = formatTime(conversation.updatedAt);
 
-    top.append(title, time);
+    const details = document.createElement('span');
+    details.className = 'conversation-details';
+    details.textContent = `${conversation.messageCount} 条消息`;
 
-    const preview = document.createElement('p');
-    preview.className = 'conversation-preview';
-    preview.textContent = conversation.preview;
+    item.append(title, time, details);
+    row.append(item);
 
-    const meta = document.createElement('span');
-    meta.className = 'conversation-meta';
-    meta.textContent = `${conversation.messageCount} 条消息`;
+    if (conversation.canDelete) {
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'conversation-delete';
+      deleteButton.disabled = pending;
+      deleteButton.textContent = '···';
+      deleteButton.setAttribute('aria-label', `删除 ${conversation.title}`);
+      deleteButton.title = '删除对话';
+      deleteButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void deleteConversation(conversation);
+      });
+      row.append(deleteButton);
+    }
 
-    item.append(top, preview, meta);
-    conversationListEl.append(item);
+    conversationListEl.append(row);
   }
 }
 
