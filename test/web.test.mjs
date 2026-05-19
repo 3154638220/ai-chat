@@ -24,6 +24,13 @@ const baseConfig = {
     contactId: 'web-owner',
     historyLimit: 20,
   },
+  persona: {
+    assistantIdentity: null,
+    assistantProfile: null,
+    userIdentity: null,
+    userProfile: null,
+    relationshipBackground: null,
+  },
   ownerBindSecret: 'owner-secret-123',
   memoryEncryptionKey: 'memory-secret-123',
   databasePath: '',
@@ -33,7 +40,7 @@ const baseConfig = {
   summaryMessageLimit: 120,
 };
 
-test('syncs the owner to the web contact and exposes recent state', async (t) => {
+test('syncs the owner to the active web conversation and exposes conversation state', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-chat-web-test-'));
   const dbPath = path.join(dir, 'memory.sqlite');
   const store = await MemoryStore.open(dbPath, baseConfig.memoryEncryptionKey);
@@ -44,16 +51,25 @@ test('syncs the owner to the web contact and exposes recent state', async (t) =>
   });
 
   store.setOwnerId('old-qq-owner');
+  store.ensureDefaultConversation('web-owner');
   store.addMessage('web-owner', 'user', '你好');
   store.addMessage('web-owner', 'assistant', '你好呀', 'deepseek-v4-flash');
   store.addSummary('web-owner', '用户喜欢深夜聊天。', 2);
 
-  syncWebOwnerContact(store, 'web-owner');
+  const newerConversation = store.createConversation('web-owner');
+  store.addMessage(newerConversation.storageContactId, 'user', '我们换个话题');
+  store.setCurrentWebConversationId('web-owner', newerConversation.id);
+
+  syncWebOwnerContact(store, newerConversation.storageContactId);
   const state = buildWebState(store, { ...baseConfig, databasePath: dbPath });
 
-  assert.equal(store.getOwnerId(), 'web-owner');
-  assert.equal(state.messageCount, 2);
-  assert.equal(state.summaryCount, 1);
-  assert.equal(state.messages[0].content, '你好');
-  assert.equal(state.messages[1].model, 'deepseek-v4-flash');
+  assert.equal(store.getOwnerId(), newerConversation.storageContactId);
+  assert.equal(state.currentConversationId, newerConversation.id);
+  assert.equal(state.messageCount, 1);
+  assert.equal(state.summaryCount, 0);
+  assert.equal(state.messages[0].content, '我们换个话题');
+  assert.equal(state.conversations.length, 2);
+  assert.equal(state.conversations[0].id, newerConversation.id);
+  assert.equal(state.conversations[1].id, 'default');
+  assert.match(state.conversations[1].preview, /你好呀/);
 });

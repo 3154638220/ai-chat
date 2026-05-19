@@ -39,16 +39,31 @@
           <button class="ghost danger" id="logout-button">退出</button>
         </div>
 
-        <div class="notice hidden" id="notice"></div>
-        <div class="messages" id="messages"></div>
+        <div class="chat-layout">
+          <aside class="conversation-sidebar">
+            <div class="sidebar-top">
+              <div>
+                <p class="eyebrow sidebar-eyebrow">Conversations</p>
+                <h3>历史对话</h3>
+              </div>
+              <button class="sidebar-new-button" id="new-conversation-button" type="button">新对话</button>
+            </div>
+            <div class="conversation-list" id="conversation-list"></div>
+          </aside>
 
-        <form id="chat-form" class="chat-form">
-          <textarea id="message-input" rows="3" maxlength="4000" placeholder="直接输入消息，或者使用 /mode fast、/status 这样的命令。"></textarea>
-          <div class="composer-meta">
-            <span>聊天内容只保存在你的服务器本地数据库里。</span>
-            <button type="submit" id="send-button">发送</button>
+          <div class="conversation-stage">
+            <div class="notice hidden" id="notice"></div>
+            <div class="messages" id="messages"></div>
+
+            <form id="chat-form" class="chat-form">
+              <textarea id="message-input" rows="3" maxlength="4000" placeholder="直接输入消息，或者使用 /mode fast、/status 这样的命令。"></textarea>
+              <div class="composer-meta">
+                <span>聊天内容只保存在你的服务器本地数据库里。</span>
+                <button type="submit" id="send-button">发送</button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </section>
     </div>
 

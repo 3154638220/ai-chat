@@ -9,7 +9,7 @@ import { ConversationService } from './conversation.js';
 import { DeepSeekClient } from './deepseek.js';
 import type { Logger } from './logger.js';
 import { SerialTaskQueue } from './queue.js';
-import { MemoryStore } from './storage.js';
+import { MemoryStore, type StoredConversation } from './storage.js';
 import type { StoredMessage } from './types.js';
 
 const PUBLIC_DIR = path.resolve('public');
@@ -28,7 +28,18 @@ interface WebMessage {
   model: string | null;
 }
 
+interface WebConversationItem {
+  id: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+  messageCount: number;
+}
+
 interface WebState {
+  currentConversationId: string;
+  currentConversationTitle: string;
+  conversations: WebConversationItem[];
   messages: WebMessage[];
   mode: string;
   messageCount: number;
@@ -49,14 +60,21 @@ export function syncWebOwnerContact(store: MemoryStore, contactId: string, logge
   });
 }
 
-export function buildWebState(store: MemoryStore, config: AppConfig): WebState {
-  const contactId = config.web.contactId;
-  const latestSummary = store.getLatestSummary(contactId);
+export function buildWebState(store: MemoryStore, config: AppConfig, preferredConversationId?: string): WebState {
+  const currentConversation = resolveCurrentConversation(store, config, preferredConversationId);
+  const latestSummary = store.getLatestSummary(currentConversation.storageContactId);
+  const conversations = store
+    .listConversations(config.web.contactId)
+    .map((conversation) => buildConversationItem(store, conversation));
+
   return {
-    messages: store.getAllMessages(contactId, config.web.historyLimit).map(toWebMessage),
+    currentConversationId: currentConversation.id,
+    currentConversationTitle: buildConversationTitle(store, currentConversation),
+    conversations,
+    messages: store.getAllMessages(currentConversation.storageContactId, config.web.historyLimit).map(toWebMessage),
     mode: store.getModelMode(config.modelRouting),
-    messageCount: store.getMessageCount(contactId),
-    summaryCount: store.getSummaryCount(contactId),
+    messageCount: store.getMessageCount(currentConversation.storageContactId),
+    summaryCount: store.getSummaryCount(currentConversation.storageContactId),
     summaryUntil: latestSummary?.sourceMessageUntilId ?? 0,
   };
 }
@@ -68,7 +86,8 @@ export async function startWebServer(config: AppConfig, logger: Logger): Promise
   const queue = new SerialTaskQueue();
   const sessions = new Map<string, SessionState>();
 
-  syncWebOwnerContact(store, config.web.contactId, logger);
+  const initialConversation = resolveCurrentConversation(store, config);
+  syncWebOwnerContact(store, initialConversation.storageContactId, logger);
 
   const server = createServer((req, res) => {
     void handleRequest(req, res).catch((error) => {
@@ -127,21 +146,55 @@ export async function startWebServer(config: AppConfig, logger: Logger): Promise
     }
 
     if (method === 'GET' && pathname === '/api/bootstrap') {
-      syncWebOwnerContact(store, config.web.contactId, logger);
-      return sendJson(res, 200, { state: buildWebState(store, config) });
+      const current = resolveCurrentConversation(store, config);
+      syncWebOwnerContact(store, current.storageContactId, logger);
+      return sendJson(res, 200, { state: buildWebState(store, config, current.id) });
+    }
+
+    if (method === 'POST' && pathname === '/api/conversations') {
+      const created = store.createConversation(config.web.contactId);
+      store.setCurrentWebConversationId(config.web.contactId, created.id);
+      syncWebOwnerContact(store, created.storageContactId, logger);
+      return sendJson(res, 200, { state: buildWebState(store, config, created.id) });
+    }
+
+    if (method === 'POST' && pathname === '/api/conversations/select') {
+      const body = await readJsonBody(req);
+      const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : '';
+      if (!conversationId) {
+        return sendJson(res, 400, { error: 'missing-conversation-id' });
+      }
+
+      const selected = store.getConversation(config.web.contactId, conversationId);
+      if (!selected) {
+        return sendJson(res, 404, { error: 'conversation-not-found' });
+      }
+
+      store.setCurrentWebConversationId(config.web.contactId, selected.id);
+      syncWebOwnerContact(store, selected.storageContactId, logger);
+      return sendJson(res, 200, { state: buildWebState(store, config, selected.id) });
     }
 
     if (method === 'POST' && pathname === '/api/chat') {
       const body = await readJsonBody(req);
       const text = typeof body.text === 'string' ? body.text.trim() : '';
+      const requestedConversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : '';
       if (!text) {
         return sendJson(res, 400, { error: 'empty-message' });
       }
 
-      syncWebOwnerContact(store, config.web.contactId, logger);
-      const beforeCount = store.getMessageCount(config.web.contactId);
-      const result = await queue.enqueue(config.web.contactId, async () => conversation.handleIncomingMessage({
-        contactId: config.web.contactId,
+      const activeConversation = requestedConversationId
+        ? store.getConversation(config.web.contactId, requestedConversationId)
+        : resolveCurrentConversation(store, config);
+      if (!activeConversation) {
+        return sendJson(res, 404, { error: 'conversation-not-found' });
+      }
+
+      store.setCurrentWebConversationId(config.web.contactId, activeConversation.id);
+      syncWebOwnerContact(store, activeConversation.storageContactId, logger);
+      const beforeCount = store.getMessageCount(activeConversation.storageContactId);
+      const result = await queue.enqueue(activeConversation.storageContactId, async () => conversation.handleIncomingMessage({
+        contactId: activeConversation.storageContactId,
         contactName: 'Web Owner',
         text,
         isSelf: false,
@@ -149,10 +202,10 @@ export async function startWebServer(config: AppConfig, logger: Logger): Promise
       }));
 
       if (result.kind === 'ignore') {
-        return sendJson(res, 400, { error: result.reason, state: buildWebState(store, config) });
+        return sendJson(res, 400, { error: result.reason, state: buildWebState(store, config, activeConversation.id) });
       }
 
-      const state = buildWebState(store, config);
+      const state = buildWebState(store, config, activeConversation.id);
       const persisted = state.messageCount > beforeCount
         && state.messages.at(-1)?.role === 'assistant'
         && state.messages.at(-1)?.content === result.text;
@@ -207,6 +260,42 @@ export async function startWebServer(config: AppConfig, logger: Logger): Promise
     session.expiresAt = Date.now() + SESSION_TTL_MS;
     return sessionId;
   }
+}
+
+function resolveCurrentConversation(store: MemoryStore, config: AppConfig, preferredConversationId?: string): StoredConversation {
+  store.ensureDefaultConversation(config.web.contactId);
+  const selectedId = preferredConversationId || store.getCurrentWebConversationId(config.web.contactId);
+  const selected = selectedId ? store.getConversation(config.web.contactId, selectedId) : null;
+  const current = selected ?? store.listConversations(config.web.contactId)[0] ?? store.ensureDefaultConversation(config.web.contactId);
+  store.setCurrentWebConversationId(config.web.contactId, current.id);
+  return current;
+}
+
+function buildConversationItem(store: MemoryStore, conversation: StoredConversation): WebConversationItem {
+  const latestMessage = store.getRecentMessages(conversation.storageContactId, 1).at(-1) ?? null;
+  return {
+    id: conversation.id,
+    title: buildConversationTitle(store, conversation),
+    preview: latestMessage ? compactText(latestMessage.content, 64) : '还没有消息',
+    updatedAt: latestMessage?.createdAt ?? conversation.updatedAt,
+    messageCount: store.getMessageCount(conversation.storageContactId),
+  };
+}
+
+function buildConversationTitle(store: MemoryStore, conversation: StoredConversation): string {
+  const latestMessage = store.getRecentMessages(conversation.storageContactId, 1).at(-1) ?? null;
+  if (!latestMessage) {
+    return '新对话';
+  }
+  return compactText(latestMessage.content, 20);
+}
+
+function compactText(content: string, limit: number): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '新对话';
+  }
+  return normalized.length > limit ? `${normalized.slice(0, limit)}…` : normalized;
 }
 
 function toWebMessage(message: StoredMessage): WebMessage {

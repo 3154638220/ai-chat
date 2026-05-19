@@ -20,6 +20,7 @@ test('builds chat messages with persona, summary, and recent history', () => {
 
   assert.equal(messages[0].role, 'system');
   assert.match(messages[0].content, /学姐/);
+  assert.match(messages[0].content, /不要直接用全名称呼他/);
   assert.match(messages[0].content, /林绪/);
   assert.match(messages[0].content, /说话克制/);
   assert.match(messages[0].content, /周沉/);
@@ -27,6 +28,8 @@ test('builds chat messages with persona, summary, and recent history', () => {
   assert.match(messages[0].content, /写代码/);
   assert.match(messages[0].content, /默认彼此已知/);
   assert.match(messages[1].content, /用户喜欢晚上散步/);
+  assert.match(messages[2].content, /优先以上面的默认资料为准/);
+  assert.match(messages[2].content, /我的爱好是什么/);
   assert.equal(messages.at(-1).content, '抱抱你。');
 });
 
